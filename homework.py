@@ -30,19 +30,22 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Отправка сообщения в """
+    """Отправка сообщения в чат."""
     ...
 
 
 def get_api_answer(timestamp):
+    """Запрос к API-сервиса."""
     ...
 
 
 def check_response(response):
+    """Проверка ответа API на соответствие документации."""
     ...
 
 
 def parse_status(homework):
+    """Получает статус работы."""
     ...
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
