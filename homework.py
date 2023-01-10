@@ -1,6 +1,10 @@
 import os
 import telegram
 import time
+import requests
+import telegram
+
+from pprint import pprint
 
 
 from dotenv import load_dotenv
@@ -26,27 +30,35 @@ HOMEWORK_VERDICTS = {
 
 def check_tokens():
     """Проверка доступности переменных окружения."""
-    ...
+    tokens = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
+    if all(tokens):
+        return True
+    return False
 
 
 def send_message(bot, message):
     """Отправка сообщения в чат."""
-    ...
+    bot.send_message(TELEGRAM_CHAT_ID, message)
 
 
 def get_api_answer(timestamp):
-    """Запрос к API-сервиса."""
-    ...
+    """Запрос к API-сервиса и приведение ответа к типам данных Python."""
+    payload = {'from_date': timestamp}
+    response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
+    return response.json()
 
 
 def check_response(response):
     """Проверка ответа API на соответствие документации."""
-    ...
+    if type(response) is dict and response['homeworks']:
+        return False
+    return True
 
 
 def parse_status(homework):
-    """Получает статус работы."""
-    ...
+    """Проверка статуса работы."""
+    homework_name = homework['homeworks'][0].get('homework_name')
+    verdict = HOMEWORK_VERDICTS[homework['homeworks'][0].get('status')]
 
     return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
@@ -57,19 +69,20 @@ def main():
     ...
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    timestamp = int(time.time())
+    # timestamp = int(time.time()) # Получает текущее значение времени в формате Unix time
+    timestamp = 1671504050
 
-    ...
 
-    while True:
-        try:
+    check_tokens()
 
-            ...
+    # while True:
+    #     try:
 
-        except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            ...
-        ...
+
+    #     except Exception as error:
+    #         message = f'Сбой в работе программы: {error}'
+    #         ...
+    #     ...
 
 
 if __name__ == '__main__':
