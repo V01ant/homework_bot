@@ -2,8 +2,7 @@ import os
 import telegram
 import time
 import requests
-import telegram
-
+import telegram 
 from pprint import pprint
 
 
@@ -51,8 +50,8 @@ def get_api_answer(timestamp):
 def check_response(response):
     """Проверка ответа API на соответствие документации."""
     if type(response) is dict and response['homeworks']:
-        return False
-    return True
+        return True
+    return False
 
 
 def parse_status(homework):
@@ -72,17 +71,26 @@ def main():
     # timestamp = int(time.time()) # Получает текущее значение времени в формате Unix time
     timestamp = 1671504050
 
-
+    print('Начало работы')
     check_tokens()
 
-    # while True:
-    #     try:
+    while True:
+        try:
+            print('совершаем запрос')
+            response = get_api_answer(timestamp)
+            if check_response(response):
+                print('парсим статус')
+                message = parse_status(response)
+                print('отправляем сообщение')
+                send_message(bot, message)
 
 
-    #     except Exception as error:
-    #         message = f'Сбой в работе программы: {error}'
-    #         ...
-    #     ...
+        except Exception as error:
+            message = f'Сбой в работе программы: {error}'
+            ...
+        finally:
+            print('ждём 10 секунд')
+            time.sleep(10)
 
 
 if __name__ == '__main__':
