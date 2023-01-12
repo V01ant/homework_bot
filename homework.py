@@ -21,7 +21,7 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 
 
-RETRY_PERIOD = 600
+RETRY_PERIOD = 10
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
@@ -81,32 +81,28 @@ def get_api_answer(timestamp):
 def check_response(response):
     """Проверка ответа API на соответствие документации."""
 
-    print(response)
-    print(type(response))
-
     if 'homeworks' not in response:
+        logger.debug('Ключ присутствует в ответе!')
         raise TypeError('Отсутствует ключ homeworks')
-        # logger.debug('Ключ присутствует в ответе!')
 
     if type(response['homeworks']) is not list:
+        logger.debug('По ключу передаётся список')
         raise TypeError('Неверный тип homeworks')
-        # logger.debug('По ключу передаётся список')
+    
+    if len(response['homeworks']) == 0:
+        logger.debug('ololo')
+        # return False
+        return 'Новый статус не появился!'
 
-    if type(response['homeworks'][0]) is not dict:
-        raise TypeError('Неверный тип homeworks')
-
-    if type(response['current_date']) is not int:
-        raise TypeError('Неверный тип current_date')
-
-    if type(response) is not dict:
-        raise TypeError('Неверный тип response')
-
-    return True
+    # return True
+    return response['homeworks'][0]
 
 
 def parse_status(homework):
     """Проверка статуса работы."""
-    # if 'homework_name' != list(homework.keys())[1]:
+    if type(homework) is str:
+        return homework
+
     if not list(homework.keys()).count('homework_name'):
         raise KeyError(f'Ключ homework_name отсутствует в ответе API')
     homework_name = homework.get('homework_name')
@@ -126,26 +122,33 @@ def main():
 
 
 
-    check_tokens()
+    # check_tokens()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
-    # timestamp = int(time.time()) # Получает текущее значение времени в формате Unix time
-    # timestamp = 1671504050
-    timestamp = 0
 
+    buffer_message = ''
     # bot.send_message(TELEGRAM_CHAT_ID, logger.info('Начало работы!'))
 
     while True:
         if not check_tokens():
             break
+
+        # timestamp = int(time.time()) # Получает текущее значение времени в формате Unix time
+        timestamp = 1671504050
+        # timestamp = 0
+
         try:
             logger.info('совершаем запрос')
             response = get_api_answer(timestamp)
-            if check_response(response):
-                logger.info('парсим статус')
-                message = parse_status(response['homeworks'][0])
+            response = check_response(response)
+            message = parse_status(response)
+            if buffer_message != message:
+                # logger.info('парсим статус')
+                
                 logger.info('отправляем сообщение')
                 send_message(bot, message)
-
+                buffer_message = message
+            # else:
+            #     logger.info('Ожидание')
 
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
