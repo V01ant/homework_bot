@@ -1,39 +1,26 @@
-import os
 import logging
 import time
-from logging import StreamHandler
 from http import HTTPStatus
 
 import requests
 import telegram
+
 import exceptions
+from constants import (HOMEWORK_VERDICTS, PRACTICUM_TOKEN, RETRY_PERIOD,
+                       TELEGRAM_CHAT_ID, TELEGRAM_TOKEN, ENDPOINT, HEADERS,
+                       EXPECTED_LENGTH_TELEGRAM_CHAT_ID,)
 
 
-from dotenv import load_dotenv
-
-load_dotenv()
-PRACTICUM_TOKEN = os.getenv('PRACTICUM_TOKEN')
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
-
-RETRY_PERIOD = 600
-ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
-HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
-
-HOMEWORK_VERDICTS = {
-    'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
-    'reviewing': 'Работа взята на проверку ревьюером.',
-    'rejected': 'Работа проверена: у ревьюера есть замечания.'
-}
-
-
+# A transfer of logger configuration to separete file breakes the tests.
+# Tests are not passes. An import error appears!
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
     '%(asctime)s [%(levelname)s] %(message)s'
 )
-handler = StreamHandler()
+handler = logging.StreamHandler()
 handler.setFormatter(formatter)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 logger.addHandler(handler)
 
 
@@ -41,9 +28,27 @@ def check_tokens():
     """Проверка доступности переменных окружения."""
     tokens = [PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID]
     if all(tokens):
+        response = requests.get(ENDPOINT).json()
+        if response.get('code') == 'not_authenticated':
+            logger.info(
+                'Проверка доступности эндпоинта yandex прошла успешно: '
+                f'{response.get("code")}'
+            )
+        else:
+            logger.critical(
+                'При неавторизованном запросе к эндпоиту '
+                'ответ API не содержит ожидаемого значения: '
+                f'not_authenticated. Ответ API: {response}'
+            )
+            return False
+        if len(TELEGRAM_CHAT_ID) != EXPECTED_LENGTH_TELEGRAM_CHAT_ID:
+            logger.critical(
+                'Ошибка в TELEGRAM_CHAT_ID! '
+                f'Текущая длина: {len(TELEGRAM_CHAT_ID)}, '
+                f'Требуемая длина: {EXPECTED_LENGTH_TELEGRAM_CHAT_ID}'
+            )
+            return False
         return True
-    logger.critical('Проблема с переменными окружения.')
-    return False
 
 
 def send_message(bot, message):
@@ -62,7 +67,11 @@ def get_api_answer(timestamp):
     try:
         response = requests.get(ENDPOINT, headers=HEADERS, params=payload)
     except requests.RequestException:
-        logger.error('Возникло исключение requests.RequestException()!')
+        logger.error(
+            f'Возникло исключение requests.RequestException()! '
+            f'Эндпоинт: {ENDPOINT} '
+            f'Время запроса: {timestamp}'
+        )
     if response.status_code != HTTPStatus.OK:
         logger.error('Сбой при обращении к эндпоинту!')
         raise exceptions.TestException('Сбой при обращении к эндпоинту!')
@@ -79,14 +88,12 @@ def check_response(response):
         raise TypeError('По ключу "homeworks" передаётся не список!')
     if len(response['homeworks']) == 0:
         logger.debug('Список работ пуст!')
-        return 'Список работ пуст!'
+        raise ValueError('Список работ пуст!')
     return response['homeworks'][0]
 
 
 def parse_status(homework):
     """Проверка статуса работы."""
-    if type(homework) is str:
-        return homework
     if not list(homework.keys()).count('homework_name'):
         logger.error('Ключ homework_name отсутствует в ответе API.')
         raise KeyError('Ключ homework_name отсутствует в ответе API.')
@@ -110,10 +117,9 @@ def main():
     while True:
         logger.info('Проверка переменных окружения.')
         if not check_tokens():
+            logger.critical('Ошибка в переменных окружения!')
             break
-
-        timestamp = int(time.time())
-
+        timestamp = 0
         try:
             logger.info('Запрос к API-сервиса.')
             response = get_api_answer(timestamp)
